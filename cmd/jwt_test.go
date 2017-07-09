@@ -59,7 +59,7 @@ func testAuthenticate(authType string, t *testing.T) {
 		if authType == "node" {
 			_, err = authenticateNode(testCase.accessKey, testCase.secretKey)
 		} else if authType == "web" {
-			_, err = authenticateWeb(testCase.accessKey, testCase.secretKey)
+			_, err = authenticateWeb(testCase.accessKey, testCase.secretKey, "")
 		}
 
 		if testCase.expectedErr != nil {
@@ -109,6 +109,6 @@ func BenchmarkAuthenticateWeb(b *testing.B) {
 	b.ResetTimer()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		authenticateWeb(creds.AccessKey, creds.SecretKey)
+		authenticateWeb(creds.AccessKey, creds.SecretKey, "")
 	}
 }

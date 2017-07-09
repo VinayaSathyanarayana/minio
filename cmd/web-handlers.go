@@ -331,6 +331,7 @@ next:
 type LoginArgs struct {
 	Username string `json:"username" form:"username"`
 	Password string `json:"password" form:"password"`
+	OTP      string `json:"otp"      form:"otp"`
 }
 
 // LoginRep - login reply.
@@ -341,7 +342,7 @@ type LoginRep struct {
 
 // Login - user login handler.
 func (web *webAPIHandlers) Login(r *http.Request, args *LoginArgs, reply *LoginRep) error {
-	token, err := authenticateWeb(args.Username, args.Password)
+	token, err := authenticateWeb(args.Username, args.Password, args.OTP)
 	if err != nil {
 		// Make sure to log errors related to browser login,
 		// for security and auditing reasons.
@@ -436,7 +437,7 @@ func (web *webAPIHandlers) SetAuth(r *http.Request, args *SetAuthArgs, reply *Se
 	}
 
 	// As we have updated access/secret key, generate new auth token.
-	token, err := authenticateWeb(creds.AccessKey, creds.SecretKey)
+	token, err := authenticateWeb(creds.AccessKey, creds.SecretKey, "")
 	if err != nil {
 		// Did we have peer errors?
 		if len(errsMap) > 0 {

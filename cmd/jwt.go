@@ -53,9 +53,8 @@ func getURL(u *url.URL) string {
 	return fmt.Sprintf("%s://%s%s", u.Scheme, u.Host, u.Path)
 }
 
-func getSAMLAssertion(username, password string, saml samlProvider) (string, error) {
+func getSAMLAssertion(username, password, otp string, saml samlProvider) (string, error) {
 	httpSess := grequests.NewSession(nil)
-
 	u, err := url.Parse(saml.IDP)
 	if err != nil {
 		return "", err
@@ -86,14 +85,29 @@ func getSAMLAssertion(username, password string, saml samlProvider) (string, err
 		return "", err
 	}
 
+	otpLogin := soup.HTMLParse(resp.String())
+	resp.Close()
+
+	otpPayload := extractOTP(otpLogin)
+	otpPayload["otp"] = otp
+	resp, err = httpSess.Post(getURL(resp.RawResponse.Request.URL),
+		&grequests.RequestOptions{
+			Data:         otpPayload,
+			UseCookieJar: true,
+		},
+	)
+	if err != nil {
+		return "", err
+	}
+
 	samlAssertion := soup.HTMLParse(resp.String())
 	resp.Close()
 
 	return extractSAMLAssertion(samlAssertion), nil
 }
 
-func authenticateJWTWithSAML(accessKey, secretKey string, expiry time.Duration, saml samlProvider) (string, error) {
-	samlAssertion, err := getSAMLAssertion(accessKey, secretKey, saml)
+func authenticateJWTWithSAML(accessKey, secretKey, otp string, expiry time.Duration, saml samlProvider) (string, error) {
+	samlAssertion, err := getSAMLAssertion(accessKey, secretKey, otp, saml)
 	if err != nil {
 		return "", err
 	}
@@ -150,6 +164,11 @@ func authenticateJWTWithSAML(accessKey, secretKey string, expiry time.Duration, 
 
 	// Set the newly generated credentials.
 	globalServerCreds.SetCredential(cred)
+
+	// Save newly generated credentials to disk.
+	if err = globalServerCreds.Save(); err != nil {
+		return "", err
+	}
 
 	tokenStr, err := token.SignedString([]byte(cred.SecretKey))
 	if err != nil {
@@ -221,7 +240,7 @@ func canonicalBrowserAuth(accessKey, token string) string {
 	return fmt.Sprintf("%s:%s", accessKey, token)
 }
 
-func authenticateWeb(accessKey, secretKey string) (token string, err error) {
+func authenticateWeb(accessKey, secretKey, otp string) (token string, err error) {
 	if !globalIsAuthCreds {
 		return authenticateJWT(accessKey, secretKey, defaultJWTExpiry)
 	}
@@ -229,7 +248,10 @@ func authenticateWeb(accessKey, secretKey string) (token string, err error) {
 	for _, saml := range sps {
 		// FIXME: This can be slower and browser might look like it hung.
 		if saml.Enable {
-			token, err = authenticateJWTWithSAML(accessKey, secretKey, defaultJWTExpiry, saml)
+			token, err = authenticateJWTWithSAML(accessKey, secretKey, otp, defaultJWTExpiry, saml)
+			if err == nil {
+				return token, nil
+			}
 		}
 	}
 	// Fall back to root creds if all else fails.

@@ -41,7 +41,8 @@ export default class Login extends React.Component {
     }
     web.Login({
       username: document.getElementById('accessKey').value,
-      password: document.getElementById('secretKey').value
+      password: document.getElementById('secretKey').value,
+      otp: document.getElementById('otp').value,
     })
       .then((res) => {
         this.context.router.push(loginRedirectPath)
@@ -102,6 +103,15 @@ export default class Login extends React.Component {
               label="Secret Key"
               id="secretKey"
               name="password"
+              type="password"
+              spellCheck="false"
+              required="required"
+              autoComplete="new-password">
+            </InputGroup>
+            <InputGroup className="ig-dark"
+              label="One Time Password"
+              id="otp"
+              name="otp"
               type="password"
               spellCheck="false"
               required="required"
